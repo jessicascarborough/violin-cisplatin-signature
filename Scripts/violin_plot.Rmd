@@ -1,0 +1,229 @@
+---
+title: "Signature Violin Plots"
+author: "Jessica Scarborough"
+date: "8/13/2020"
+output: html_document
+---
+
+# Set up and Load Data
+
+```{r setup, include=FALSE}
+library(knitr); library(tidyverse); library(reshape2); library(beeswarm); 
+library(here)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+First, we're going to load our dataset, which includes a list of 13 genes (the Cisplatin Sensitivity Signature) and TCGA expression data for many types of epithelial-based cancers. Let's take a look at our signature. If you wish to perform the analysis yourself, you may uncomment the line manually loading the signature. 
+
+```{r read_sig_data}
+
+cisplatin_sens_sig <- readRDS(here("Cisplatin_Signature.rds"))
+
+print(cisplatin_sens_sig)
+
+```
+
+We're going to load all cancer subtypes separately, adding tissue labels (`tissue` and `tcga_label`) that we'll utilize later. If you wish to perform these analyses yourself, the data can be found [here](https://drive.google.com/file/d/1kxYgym_VWwZhcKuxdEGB50MYBkM1FpHT/view?usp=sharing). Unzip the file so that each `.txt` file is found in a directory `TCGA_Data`. 
+
+```{r read_tcga}
+
+tcga_BLCA <- data.frame(t(read.table("../TCGA_Data/cleaned_BLCA_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_BLCA$tcga_label <- rep("BLCA", nrow(tcga_BLCA))
+tcga_BLCA$tissue <- rep("Bladder", nrow(tcga_BLCA))
+tcga_BRCA <- data.frame(t(read.table("../TCGA_Data/cleaned_BRCA_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_BRCA$tcga_label <- rep("BRCA", nrow(tcga_BRCA))
+tcga_BRCA$tissue <- rep("Breast", nrow(tcga_BRCA))
+tcga_CESC <- data.frame(t(read.table("../TCGA_Data/cleaned_CESC_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_CESC$tcga_label <- rep("CESC", nrow(tcga_CESC))
+tcga_CESC$tissue <- rep("Cervix", nrow(tcga_CESC))
+tcga_COAD <- data.frame(t(read.table("../TCGA_Data/cleaned_COAD_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_COAD$tcga_label <- rep("COAD", nrow(tcga_COAD))
+tcga_COAD$tissue <- rep("Colon", nrow(tcga_COAD))
+tcga_HNSC <- data.frame(t(read.table("../TCGA_Data/cleaned_HNSC_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_HNSC$tcga_label <- rep("HNSC", nrow(tcga_HNSC))
+tcga_HNSC$tissue <- rep("Head and Neck", nrow(tcga_HNSC))
+tcga_KIRC <- data.frame(t(read.table("../TCGA_Data/cleaned_KIRC_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_KIRC$tcga_label <- rep("KIRC", nrow(tcga_KIRC))
+tcga_KIRC$tissue <- rep("Kidney Clear Cell", nrow(tcga_KIRC))
+tcga_KIRP <- data.frame(t(read.table("../TCGA_Data/cleaned_KIRP_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_KIRP$tcga_label <- rep("KIRP", nrow(tcga_KIRP))
+tcga_KIRP$tissue <- rep("Kidney Papillary", nrow(tcga_KIRP))
+tcga_LIHC <- data.frame(t(read.table("../TCGA_Data/cleaned_LIHC_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_LIHC$tcga_label <- rep("LIHC", nrow(tcga_LIHC))
+tcga_LIHC$tissue <- rep("Liver HCC", nrow(tcga_LIHC))
+tcga_LUAD <- data.frame(t(read.table("../TCGA_Data/cleaned_LUAD_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_LUAD$tcga_label <- rep("LUAD", nrow(tcga_LUAD))
+tcga_LUAD$tissue <- rep("Lung Adenocarcinoma", nrow(tcga_LUAD))
+tcga_LUSC <- data.frame(t(read.table("../TCGA_Data/cleaned_LUSC_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_LUSC$tcga_label <- rep("LUSC", nrow(tcga_LUSC))
+tcga_LUSC$tissue <- rep("Lung SCC", nrow(tcga_LUSC))
+tcga_OV <-   data.frame(t(read.table("../TCGA_Data/cleaned_OV_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_OV$tcga_label <- rep("OV", nrow(tcga_OV))
+tcga_OV$tissue <- rep("Ovary", nrow(tcga_OV))
+tcga_PAAD <- data.frame(t(read.table("../TCGA_Data/cleaned_PAAD_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_PAAD$tcga_label <- rep("PAAD", nrow(tcga_PAAD))
+tcga_PAAD$tissue <- rep("Pancreas", nrow(tcga_PAAD))
+tcga_PRAD <- data.frame(t(read.table("../TCGA_Data/cleaned_PRAD_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_PRAD$tcga_label <- rep("PRAD", nrow(tcga_PRAD))
+tcga_PRAD$tissue <- rep("Prostate", nrow(tcga_PRAD))
+tcga_STAD <- data.frame(t(read.table("../TCGA_Data/cleaned_STAD_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_STAD$tcga_label <- rep("STAD", nrow(tcga_STAD))
+tcga_STAD$tissue <- rep("Stomach", nrow(tcga_STAD))
+tcga_THCA <- data.frame(t(read.table("../TCGA_Data/cleaned_THCA_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_THCA$tcga_label <- rep("THCA", nrow(tcga_THCA))
+tcga_THCA$tissue <- rep("Thymus", nrow(tcga_THCA))
+tcga_UCEC <- data.frame(t(read.table("../TCGA_Data/cleaned_UCEC_mRNA.txt", header = TRUE, stringsAsFactors = FALSE)), check.names = FALSE)
+tcga_UCEC$tcga_label <- rep("UCEC", nrow(tcga_UCEC))
+tcga_UCEC$tissue <- rep("Uterus", nrow(tcga_UCEC))
+
+
+```
+
+
+# Data Pre-Processing
+
+## Format Dataframe
+
+Here, we're combining all the TCGA samples into a single dataframe, with a column to label their histology in the data frame `epi_tcga`. Then, we'll create a new dataframe that contains just 13 columns, containing the gene expression for all TCGA samples, `epi_tcga_cis_sig`. 
+
+```{r format_tcga}
+
+epi_tcga <- bind_rows(tcga_BLCA, tcga_BRCA, tcga_CESC, tcga_COAD, tcga_HNSC, 
+                      tcga_KIRC, tcga_KIRP, tcga_LIHC, tcga_LUAD, 
+                      tcga_LUSC, tcga_OV, tcga_PAAD, tcga_PRAD, tcga_STAD, 
+                      tcga_THCA, tcga_UCEC)
+
+epi_tcga_cis_sig <- epi_tcga %>%
+  select(all_of(cisplatin_sens_sig))
+
+
+```
+
+
+Let's take a look at our data structure now. 
+
+```{r view_tcga_data}
+
+head(epi_tcga_cis_sig)
+
+```
+
+## Scale and Extract Scores
+
+Next, we're going to scale the data, creating simple z-scores using the `scale` function on each gene. This process removes the row names, so we'll add them back. Again, let's look at our dataset. 
+
+```{r scale_data}
+
+epi_tcga_cis_sig <- data.frame(scale(epi_tcga_cis_sig, center = TRUE, scale = TRUE))
+row.names(epi_tcga_cis_sig) <- row.names(epi_tcga)
+
+head(epi_tcga_cis_sig)
+
+```
+
+Next, let's get get a score for each sample's expression of the Cisplatin Sensivitiy Signature. First, we'll take the median expression of each sample (row), using the `apply` function. Once this is done, we can add back in the `tissue` and `tcga_label` columns. We'll check out what the dataframe looks like now. 
+
+```{r extract_scores}
+
+epi_tcga_cis_sig$median_expr <- apply(epi_tcga_cis_sig, 1, median)
+epi_tcga_cis_sig$tissue <- epi_tcga$tissue
+epi_tcga_cis_sig$tcga_label <- epi_tcga$tcga_label
+
+head(epi_tcga_cis_sig)
+
+```
+
+Now, we need to start formatting these dataframes with the final product in mind. We want a violin plot that ranks the groups in order. For this, we'll say we want them ranked by median value of the entire group. We'll extract these median group values, then convert the `tcga_label` and `tissue` variables to ordered factors. `ggplot2` will recognize these orders and automatically apply them when plotting. In addition to this, we'll find the number of samples in each group, which will be used later in plotting. 
+
+
+```{r format_groups}
+
+median_epi_group <- epi_tcga_cis_sig %>%
+  group_by(tcga_label, tissue) %>%
+  summarize(median = median(median_expr), n = n()) %>%
+  arrange(desc(median))
+
+median_epi_group <- median_epi_group %>%
+  # ungroup(n) %>%
+  # ungroup(tcga_label) %>%
+  # ungroup(tissue) %>%
+  mutate(tcga_label = fct_reorder(tcga_label, desc(median))) %>%
+  mutate(tissue = fct_reorder(tissue, desc(median)))
+
+
+
+epi_tcga_cis_sig$tcga_label <- factor(epi_tcga_cis_sig$tcga_label, 
+                                      ordered = TRUE, 
+                                      levels = median_epi_group$tcga_label)
+epi_tcga_cis_sig$tissue <- factor(epi_tcga_cis_sig$tissue, 
+                                      ordered = TRUE, 
+                                      levels = median_epi_group$tissue)
+
+# tcga_tcga_label_count <- epi_tcga_cis_sig %>% count(tcga_label)
+# tcga_tissue_count <- epi_tcga_cis_sig %>% count(tissue)
+
+saveRDS(epi_tcga, "../TCGA_Data/epi_tcga.RDS")
+epi_tcga <- readRDS("../TCGA_Data/epi_tcga.RDS")
+saveRDS(epi_tcga_cis_sig, "../TCGA_Data/epi_tcga_cisplatin_sig.RDS")
+epi_tcga_cis_sig <- readRDS("../TCGA_Data/epi_tcga_cisplatin_sig.RDS")
+
+```
+
+Finally, we need to plot these scores on a log-scale axis. This means that we can't have any negative or 0 values. We'll make a new dataframe, called `viol_data` with linearly scaled scores. Here, we simply add the minimum value to all the scores and 1. This means that the scores will start at a minimum of 1. We'll confirm that that's the case and take a final look at our dataset before plotting. 
+
+```{r linear_scale_scores}
+
+viol_data <- epi_tcga_cis_sig
+viol_data$median_expr <- epi_tcga_cis_sig$median_expr + (abs(min(epi_tcga_cis_sig$median_expr))+1)
+
+min(viol_data$median_expr)
+
+head(viol_data)
+
+```
+
+
+# Create Violin Plots
+
+We'll use `viol_data` to plot our ordered violin plots. This function requires a dataframe that contains a column with the signature scores (`median_expr`) and a column labeling each sample's histology. Here, that's `tcga_label` and below we use `tissue`. The colors are simply for aesthetics, labeling by each subgroup. Finally, we use a second (`median_epi_group`) dataframe containing some summarized characteristics for each label. We label each violin plot with the total number of samples (`n`) in each group. 
+
+```{r plot_violin_tcga_sig_tcga_label}
+
+ggplot(viol_data, aes(x = tcga_label, y=median_expr)) +
+  geom_violin(trim = FALSE, scale = "width", aes(fill=tissue)) +
+  geom_boxplot(width = 0.12, outlier.shape = NA) +
+  scale_y_continuous(trans="log10") +
+  scale_x_discrete(expand = c(0,0)) +
+  geom_label(aes(x = tcga_label, y = .9, label = n), data = median_epi_group,
+             label.padding = unit(0.15, "lines")) +
+  coord_flip() +
+  ylab("Signature Score") + xlab("Cancer Subtype") + 
+  theme_bw(base_size = 17) +
+  theme(axis.text.y = element_text(angle = 30),
+    axis.title=element_text(face="bold"),
+        legend.position = "none")
+
+```
+
+
+```{r plot_violin_tcga_sig_tissue_label}
+
+ggplot(viol_data, aes(x = tissue, y=median_expr)) +
+  geom_violin(trim = FALSE, scale = "width", aes(fill=tissue)) +
+  geom_boxplot(width = 0.12, outlier.shape = NA) +
+  scale_y_continuous(trans="log10") +
+  scale_x_discrete(expand = c(0,0)) +
+  geom_label(aes(x = tissue, y = .9, label = n), data = median_epi_group,
+             label.padding = unit(0.15, "lines")) +
+  coord_flip() +
+  ylab("Signature Score") + xlab("Cancer Subtype") + 
+  theme_bw(base_size = 17) +
+  theme(axis.text.y = element_text(angle = 30),
+    axis.title=element_text(face="bold"),
+        legend.position = "none")
+
+
+```
+
+
